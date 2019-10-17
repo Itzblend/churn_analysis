@@ -13,3 +13,48 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## __What is the problem we are solving here?__
 #### Getting new customers is always way more expensive than retaining your excisting customers and make them come back for more. We are going to dig deep into the data and find out how we can make customers stay
+
+```{r}
+library(tidyverse)
+library(caret)
+library(plyr)
+```
+```{r}
+churndata <- read_csv("C:/Users/Mari/Documents/Lauri/churn_analysis/Telco Data.csv")
+```
+### As the data we are predicting is either "Churn" or "Not Churn", we are going to use Logistics regression which is a Linear classifier
+
+### First off some data cleaning
+```{r}
+churndata$Partner <- as.integer(revalue(churndata$Partner, c("No" = 0, "Yes" = 1)))
+churndata$Dependents <- as.integer(revalue(churndata$Dependents, c("No" = 0, "Yes" = 1)))
+churndata$PhoneService <- as.integer(revalue(churndata$PhoneService, c("No" = 0, "Yes" = 1)))
+churndata$InternetService <- as.factor(churndata$InternetService)
+churndata$OnlineSecurity <- as.factor(churndata$OnlineSecurity)
+churndata$MultipleLines <- as.factor(churndata$MultipleLines)
+churndata$OnlineBackup <- as.factor(churndata$OnlineBackup)
+churndata$DeviceProtection <- as.factor(churndata$DeviceProtection)
+churndata$TechSupport <- as.factor(churndata$TechSupport)
+churndata$StreamingTV <- as.factor(churndata$StreamingTV)
+churndata$StreamingMovies <- as.factor(churndata$StreamingMovies)
+churndata$Contract <- as.integer(revalue(churndata$Contract, c("Month-to-month" = 0, "One year" = 1, "Two year" = 2)))
+churndata$PaperlessBilling <- as.integer(revalue(churndata$PaperlessBilling, c("No" = 0, "Yes" = 1)))
+churndata$PaymentMethod <- as.factor(churndata$PaymentMethod)
+churndata$Churn <- as.integer(revalue(churndata$Churn, c("No" = 0, "Yes" = 1)))
+```
+Missing values
+```{r}
+missattrs <- sapply(churndata, function(x) sum(x == "" | is.na(x)))
+missattrs # So only TotalCharges has some missing values
+churndata[is.na(churndata$TotalCharges),]
+
+for (i in 1:nrow(churndata)){
+  if (is.na(churndata$TotalCharges[i])){
+    churndata$TotalCharges[i] <- churndata$MonthlyCharges[i]
+  }
+}
+
+sapply(churndata, function(x) sum(x == "" | is.na(x)))
+names(which(missattrs > 0))
+```
+

@@ -376,6 +376,135 @@ summary {
 <h2><strong>What is the problem we are solving here?</strong></h2>
 <div id="getting-new-customers-is-always-way-more-expensive-than-retaining-your-excisting-customers-and-make-them-come-back-for-more.-we-are-going-to-dig-deep-into-the-data-and-find-out-how-we-can-make-customers-stay" class="section level4">
 <h4>Getting new customers is always way more expensive than retaining your excisting customers and make them come back for more. We are going to dig deep into the data and find out how we can make customers stay</h4>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<pre><code>## Warning: package &#39;tidyverse&#39; was built under R version 3.6.1</code></pre>
+<pre><code>## Registered S3 methods overwritten by &#39;ggplot2&#39;:
+##   method         from 
+##   [.quosures     rlang
+##   c.quosures     rlang
+##   print.quosures rlang</code></pre>
+<pre><code>## -- Attaching packages --------------------------------------------------- tidyverse 1.2.1 --</code></pre>
+<pre><code>## v ggplot2 3.1.1     v purrr   0.3.2
+## v tibble  2.1.3     v dplyr   0.8.1
+## v tidyr   0.8.3     v stringr 1.4.0
+## v readr   1.3.1     v forcats 0.4.0</code></pre>
+<pre><code>## Warning: package &#39;tibble&#39; was built under R version 3.6.1</code></pre>
+<pre><code>## Warning: package &#39;tidyr&#39; was built under R version 3.6.1</code></pre>
+<pre><code>## Warning: package &#39;stringr&#39; was built under R version 3.6.1</code></pre>
+<pre><code>## -- Conflicts ------------------------------------------------------ tidyverse_conflicts() --
+## x dplyr::filter() masks stats::filter()
+## x dplyr::lag()    masks stats::lag()</code></pre>
+<pre class="r"><code>library(caret)</code></pre>
+<pre><code>## Warning: package &#39;caret&#39; was built under R version 3.6.1</code></pre>
+<pre><code>## Loading required package: lattice</code></pre>
+<pre><code>## 
+## Attaching package: &#39;caret&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:purrr&#39;:
+## 
+##     lift</code></pre>
+<pre class="r"><code>library(plyr)</code></pre>
+<pre><code>## Warning: package &#39;plyr&#39; was built under R version 3.6.1</code></pre>
+<pre><code>## -------------------------------------------------------------------------</code></pre>
+<pre><code>## You have loaded plyr after dplyr - this is likely to cause problems.
+## If you need functions from both plyr and dplyr, please load plyr first, then dplyr:
+## library(plyr); library(dplyr)</code></pre>
+<pre><code>## -------------------------------------------------------------------------</code></pre>
+<pre><code>## 
+## Attaching package: &#39;plyr&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:dplyr&#39;:
+## 
+##     arrange, count, desc, failwith, id, mutate, rename, summarise,
+##     summarize</code></pre>
+<pre><code>## The following object is masked from &#39;package:purrr&#39;:
+## 
+##     compact</code></pre>
+<pre class="r"><code>churndata &lt;- read_csv(&quot;C:/Users/Mari/Documents/Lauri/churn_analysis/Telco Data.csv&quot;)</code></pre>
+<pre><code>## Parsed with column specification:
+## cols(
+##   .default = col_character(),
+##   SeniorCitizen = col_double(),
+##   tenure = col_double(),
+##   MonthlyCharges = col_double(),
+##   TotalCharges = col_double()
+## )</code></pre>
+<pre><code>## See spec(...) for full column specifications.</code></pre>
+</div>
+<div id="as-the-data-we-are-predicting-is-either-churn-or-not-churn-we-are-going-to-use-logistics-regression-which-is-a-linear-classifier" class="section level3">
+<h3>As the data we are predicting is either “Churn” or “Not Churn”, we are going to use Logistics regression which is a Linear classifier</h3>
+</div>
+<div id="first-off-some-data-cleaning" class="section level3">
+<h3>First off some data cleaning</h3>
+<pre class="r"><code>churndata$Partner &lt;- as.integer(revalue(churndata$Partner, c(&quot;No&quot; = 0, &quot;Yes&quot; = 1)))
+churndata$Dependents &lt;- as.integer(revalue(churndata$Dependents, c(&quot;No&quot; = 0, &quot;Yes&quot; = 1)))
+churndata$PhoneService &lt;- as.integer(revalue(churndata$PhoneService, c(&quot;No&quot; = 0, &quot;Yes&quot; = 1)))
+churndata$InternetService &lt;- as.factor(churndata$InternetService)
+churndata$OnlineSecurity &lt;- as.factor(churndata$OnlineSecurity)
+churndata$MultipleLines &lt;- as.factor(churndata$MultipleLines)
+churndata$OnlineBackup &lt;- as.factor(churndata$OnlineBackup)
+churndata$DeviceProtection &lt;- as.factor(churndata$DeviceProtection)
+churndata$TechSupport &lt;- as.factor(churndata$TechSupport)
+churndata$StreamingTV &lt;- as.factor(churndata$StreamingTV)
+churndata$StreamingMovies &lt;- as.factor(churndata$StreamingMovies)
+churndata$Contract &lt;- as.integer(revalue(churndata$Contract, c(&quot;Month-to-month&quot; = 0, &quot;One year&quot; = 1, &quot;Two year&quot; = 2)))
+churndata$PaperlessBilling &lt;- as.integer(revalue(churndata$PaperlessBilling, c(&quot;No&quot; = 0, &quot;Yes&quot; = 1)))
+churndata$PaymentMethod &lt;- as.factor(churndata$PaymentMethod)
+churndata$Churn &lt;- as.integer(revalue(churndata$Churn, c(&quot;No&quot; = 0, &quot;Yes&quot; = 1)))</code></pre>
+<p>Missing values</p>
+<pre class="r"><code>missattrs &lt;- sapply(churndata, function(x) sum(x == &quot;&quot; | is.na(x)))
+missattrs # So only TotalCharges has some missing values</code></pre>
+<pre><code>##       customerID           gender    SeniorCitizen          Partner 
+##                0                0                0                0 
+##       Dependents           tenure     PhoneService    MultipleLines 
+##                0                0                0                0 
+##  InternetService   OnlineSecurity     OnlineBackup DeviceProtection 
+##                0                0                0                0 
+##      TechSupport      StreamingTV  StreamingMovies         Contract 
+##                0                0                0                0 
+## PaperlessBilling    PaymentMethod   MonthlyCharges     TotalCharges 
+##                0                0                0               11 
+##            Churn 
+##                0</code></pre>
+<pre class="r"><code>churndata$TotalCharges[missattrs]</code></pre>
+<pre><code>## [1] 587.45</code></pre>
+<pre class="r"><code>churndata[is.na(churndata$TotalCharges),]</code></pre>
+<pre><code>## # A tibble: 11 x 21
+##    customerID gender SeniorCitizen Partner Dependents tenure PhoneService
+##    &lt;chr&gt;      &lt;chr&gt;          &lt;dbl&gt;   &lt;int&gt;      &lt;int&gt;  &lt;dbl&gt;        &lt;int&gt;
+##  1 4472-LVYGI Female             0       1          1      0            0
+##  2 3115-CZMZD Male               0       0          1      0            1
+##  3 5709-LVOEQ Female             0       1          1      0            1
+##  4 4367-NUYAO Male               0       1          1      0            1
+##  5 1371-DWPAZ Female             0       1          1      0            0
+##  6 7644-OMVMY Male               0       1          1      0            1
+##  7 3213-VVOLG Male               0       1          1      0            1
+##  8 2520-SGTTA Female             0       1          1      0            1
+##  9 2923-ARZLG Male               0       1          1      0            1
+## 10 4075-WKNIU Female             0       1          1      0            1
+## 11 2775-SEFEE Male               0       0          1      0            1
+## # ... with 14 more variables: MultipleLines &lt;fct&gt;, InternetService &lt;fct&gt;,
+## #   OnlineSecurity &lt;fct&gt;, OnlineBackup &lt;fct&gt;, DeviceProtection &lt;fct&gt;,
+## #   TechSupport &lt;fct&gt;, StreamingTV &lt;fct&gt;, StreamingMovies &lt;fct&gt;,
+## #   Contract &lt;int&gt;, PaperlessBilling &lt;int&gt;, PaymentMethod &lt;fct&gt;,
+## #   MonthlyCharges &lt;dbl&gt;, TotalCharges &lt;dbl&gt;, Churn &lt;int&gt;</code></pre>
+<pre class="r"><code>for (i in 1:nrow(churndata)){
+  if (is.na(churndata$TotalCharges[i])){
+    churndata$TotalCharges[i] &lt;- churndata$MonthlyCharges[i]
+  }
+}
+
+missattrs</code></pre>
+<pre><code>##       customerID           gender    SeniorCitizen          Partner 
+##                0                0                0                0 
+##       Dependents           tenure     PhoneService    MultipleLines 
+##                0                0                0                0 
+##  InternetService   OnlineSecurity     OnlineBackup DeviceProtection 
+##                0                0                0                0 
+##      TechSupport      StreamingTV  StreamingMovies         Contract 
+##                0                0                0                0 
+## PaperlessBilling    PaymentMethod   MonthlyCharges     TotalCharges 
+##                0                0                0               11 
+##            Churn 
+##                0</code></pre>
 </div>
 </div>
 </div>
