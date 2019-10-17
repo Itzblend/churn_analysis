@@ -1,0 +1,15 @@
+---
+title: "churn analysis"
+author: "Itzblend"
+date: "17/10/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# __Churn analysis__
+
+## __What is the problem we are solving here?__
+#### Getting new customers is always way more expensive than retaining your excisting customers and make them come back for more. We are going to dig deep into the data and find out how we can make customers stay
