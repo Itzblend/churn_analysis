@@ -18,17 +18,28 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(caret)
 library(plyr)
+library(randomForest)
+library(psych)
+library(corrplot)
+library(e1071)
+library(ROCR)
 ```
 ```{r}
-churndata <- read_csv("C:/Users/Mari/Documents/Lauri/churn_analysis/Telco Data.csv")
+#churndata <- read_csv("C:/Users/Mari/Documents/Lauri/churn_analysis/Telco Data.csv")
+churndata <- read_csv("~/Documents/churn_analysis/Telco Data.csv")
+
+# Removing the customerID attribute as we wont be needing it in our algorithm
+churndata$customerID <- NULL
 ```
 ### As the data we are predicting is either "Churn" or "Not Churn", we are going to use Logistics regression which is a Linear classifier
 
 ### First off some data cleaning
 ```{r}
-churndata$Partner <- as.integer(revalue(churndata$Partner, c("No" = 0, "Yes" = 1)))
-churndata$Dependents <- as.integer(revalue(churndata$Dependents, c("No" = 0, "Yes" = 1)))
-churndata$PhoneService <- as.integer(revalue(churndata$PhoneService, c("No" = 0, "Yes" = 1)))
+churndata$gender <- as.factor(churndata$gender)
+churndata$SeniorCitizen <- as.factor(churndata$SeniorCitizen)
+churndata$Partner <- as.factor(revalue(churndata$Partner, c("No" = 0, "Yes" = 1)))
+churndata$Dependents <- as.factor(revalue(churndata$Dependents, c("No" = 0, "Yes" = 1)))
+churndata$PhoneService <- as.factor(revalue(churndata$PhoneService, c("No" = 0, "Yes" = 1)))
 churndata$InternetService <- as.factor(churndata$InternetService)
 churndata$OnlineSecurity <- as.factor(churndata$OnlineSecurity)
 churndata$MultipleLines <- as.factor(churndata$MultipleLines)
@@ -37,24 +48,198 @@ churndata$DeviceProtection <- as.factor(churndata$DeviceProtection)
 churndata$TechSupport <- as.factor(churndata$TechSupport)
 churndata$StreamingTV <- as.factor(churndata$StreamingTV)
 churndata$StreamingMovies <- as.factor(churndata$StreamingMovies)
-churndata$Contract <- as.integer(revalue(churndata$Contract, c("Month-to-month" = 0, "One year" = 1, "Two year" = 2)))
-churndata$PaperlessBilling <- as.integer(revalue(churndata$PaperlessBilling, c("No" = 0, "Yes" = 1)))
+churndata$Contract <- as.factor(churndata$Contract)
+churndata$PaperlessBilling <- as.factor(revalue(churndata$PaperlessBilling, c("No" = 0, "Yes" = 1)))
 churndata$PaymentMethod <- as.factor(churndata$PaymentMethod)
-churndata$Churn <- as.integer(revalue(churndata$Churn, c("No" = 0, "Yes" = 1)))
+churndata$Churn <- as.factor(churndata$Churn)
+
+
 ```
 Missing values
 ```{r}
 missattrs <- sapply(churndata, function(x) sum(x == "" | is.na(x)))
 missattrs # So only TotalCharges has some missing values
+
+names(which(missattrs > 0))
 churndata[is.na(churndata$TotalCharges),]
 
 for (i in 1:nrow(churndata)){
   if (is.na(churndata$TotalCharges[i])){
-    churndata$TotalCharges[i] <- churndata$MonthlyCharges[i]
+    churndata$TotalCharges[i] <- median(churndata$TotalCharges, na.rm = TRUE)
   }
 }
 
 sapply(churndata, function(x) sum(x == "" | is.na(x)))
 names(which(missattrs > 0))
 ```
+Splitting the dataset into train and test
+```{r}
+traindata <- createDataPartition(y = churndata$Churn, p = 0.75, list = FALSE)
+train <- churndata[traindata,]
+test <- churndata[-traindata,]
+```
+Then into numerical and factors
+```{r}
+numerical_vars <- names(churndata[,sapply(churndata, is.numeric)])
+num_df <- churndata[,names(churndata) %in% numerical_vars]
+
+factor_vars <- names(churndata[,sapply(churndata, is.factor)])
+factor_df <- churndata[,names(churndata) %in% factor_vars]
+```
+Checking for skewness
+```{r}
+skew(num_df)
+for(i in 1:ncol(num_df)){
+  if(abs(skew(num_df[,i])) > 0.8) {
+    num_df[,i] <- log(num_df[,i] +1)
+  }
+}
+
+skew(num_df)
+```
+Preprocessing the numerical variables
+```{r}
+preNum <- preProcess(num_df, method = c("center", "scale"))
+print(preNum)
+```
+```{r}
+norm_df <- predict(preNum, num_df) # Last stage of numerical data
+```
+Normalizing the factor variables by making them dummy variables
+```{r}
+dummy_df <- as.data.frame(model.matrix(~.-1, factor_df))
+
+zerocol <- which(colSums(dummy_df[1:nrow(dummy_df),]) == 0)
+colnames(zerocol)
+less10 <- which(colSums(dummy_df[1:nrow(dummy_df),]) < 10)
+colnames(less10)
+
+# Nothing to remove here
+```
+combining the numerical and factor datasets
+```{r}
+combined <- cbind(norm_df, dummy_df)
+```
+Fitting the model
+```{r}
+fit <- glm(Churn~., data = train, family = binomial)
+```
+Predicting the test set with train fit
+```{r}
+churn_probs <- predict(fit, test, type = "response")
+head(churn_probs)
+```
+```{r}
+contrasts(churndata$Churn)
+```
+```{r}
+glm_pred = rep("No", length(churn_probs))
+glm_pred[churn_probs > 0.5] = "Yes"
+glm_pred <- as.factor(glm_pred)
+```
+Evaluating the model
+```{r}
+confusionMatrix(glm_pred, test$Churn, positive = "Yes")
+```
+Digging deeper to sensitivity and specificity
+```{r}
+# Creating prediction object
+pred <- prediction(churn_probs, test$Churn)
+# Plotting the ROC
+prf <- performance(pred, measure = "tpr", x.measure = "fpr")
+plot(prf)
+```
+Area Under the ROC Curve, known as the AUC
+```{r}
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+auc
+# Our models auc is way over 50% so its way more accurate than guessing. Business value here!
+```
+Improving the model with cross validation
+```{r}
+set.seed(205)
+
+# Control
+fitctrl <- trainControl(
+  method = "repeatedcv",
+  number = 10,
+  repeats = 3,
+  classProbs = TRUE,
+  summaryFunction = twoClassSummary
+)
+
+# Logistic regression model
+logreg <- train(Churn~., churndata,
+                method = "glm",
+                family = "binomial",
+                trControl = fitctrl,
+                metric = "ROC")
+```
+```{r}
+logreg
+```
+Comparing the cost
+```{r}
+# Fitting
+fit <- glm(Churn~., data = train, family = binomial)
+
+# Predicting
+churn_probs <- predict(fit, test, type = "response")
+```
+Treshold and cost vectors
+```{r}
+thresh <- seq(0.1 ,1.0, length = 10)
+
+cost = rep(0, length(thresh))
+```
+```{r}
+for (i in 1:length(thresh)){
+  
+  glm_pred = rep("No", length(churn_probs))
+  glm_pred[churn_probs > thresh[i]] = "Yes"
+  glm_pred <- as.factor(glm_pred)
+  x <- confusionMatrix(glm_pred, test$Churn, positive = "Yes")
+  TN <- x$table[1]/1760
+  FP <- x$table[2]/1760
+  FN <- x$table[3]/1760
+  TP <- x$table[4]/1760
+  cost[i] = FN*300 + TP*60 + FP*60 + TN*0
+}
+```
+Simple model
+```{r}
+glm_pred = rep("No", length(churn_probs))
+glm_pred[churn_probs > 0.5] = "Yes"
+glm_pred <- as.factor(glm_pred)
+
+x <- confusionMatrix(glm_pred, test$Churn, positive = "Yes")
+TN <- x$table[1]/1760
+FP <- x$table[2]/1760
+FN <- x$table[3]/1760
+TP <- x$table[4]/1760
+cost_simple = FN*300 + TP*60 + FP*60 + TN*0
+```
+Comparing the costs of optimized and simple model
+```{r}
+cost_df <- data.frame(
+  model = c(rep("optimized", 10),"simple"),
+  cost_per_customer = c(cost, cost_simple),
+  threshold = c(thresh, 0.5)
+)
+
+ggplot(cost_df, aes(x = threshold, y = cost_per_customer, group = model, color = model))+
+  geom_line()+
+  geom_point()
+### The lowest cost per customer is about 41$ at the threshold of 0.2 ###
+```
+Calculating the savings
+```{r}
+savings_per_customer <- cost_simple - min(cost)
+
+total_savings <- 7043*savings_per_customer
+total_savings
+```
+
+
 

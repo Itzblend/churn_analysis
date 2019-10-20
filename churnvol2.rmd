@@ -1,0 +1,65 @@
+---
+title: "churnvol2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+library(tidyverse)
+library(caret)
+library(plyr)
+library(randomForest)
+library(psych)
+library(corrplot)
+library(e1071)
+library(ROCR)
+```
+```{r}
+traindata1 <- createDataPartition(y = combined$ChurnYes, p = 0.75, list = FALSE)
+train1 <- combined[traindata1,]
+test1 <- combined[-traindata1,]
+
+fit1 <- glm(ChurnYes~., data = combined, family = binomial)
+
+churn_probs1 <- predict(fit1, test1, type = "response")
+head(churn_probs1)
+```
+```{r}
+glm_pred1 = rep("No", length(churn_probs))
+glm_pred1[churn_probs1 > 0.5] = "Yes"
+glm_pred1 <- as.factor(glm_pred)
+```
+```{r}
+pred1 <- prediction(churn_probs1, test1$ChurnYes)
+prf1 <- performance(pred1, measure = "tpr", x.measure = "fpr")
+plot(prf1)
+```
+```{r}
+auc1 <- performance(pred1, measure = "auc")
+auc1 <- auc1@y.values[[1]]
+auc1
+```
+```{r}
+set.seed(205)
+
+# Control
+fitctrl1 <- trainControl(
+  method = "repeatedcv",
+  number = 10,
+  repeats = 3,
+  classProbs = TRUE,
+  summaryFunction = twoClassSummary
+)
+
+# Logistic regression model
+logreg1 <- train(ChurnYes~., combined,
+                method = "glm",
+                family = "binomial",
+                trControl = fitctrl1,
+                metric = "ROC")
+```
+
+
