@@ -25,8 +25,8 @@ library(e1071)
 library(ROCR)
 ```
 ```{r}
-#churndata <- read_csv("C:/Users/Mari/Documents/Lauri/churn_analysis/Telco Data.csv")
-churndata <- read_csv("~/Documents/churn_analysis/Telco Data.csv")
+churndata <- read_csv("C:/Users/Mari/Documents/Lauri/churn_analysis/Telco Data.csv")
+#churndata <- read_csv("~/Documents/churn_analysis/Telco Data.csv")
 
 # Removing the customerID attribute as we wont be needing it in our algorithm
 churndata$customerID <- NULL
@@ -122,6 +122,7 @@ combined <- cbind(norm_df, dummy_df)
 ```
 Fitting the model
 ```{r}
+set.seed(205)
 fit <- glm(Churn~., data = train, family = binomial)
 ```
 Predicting the test set with train fit

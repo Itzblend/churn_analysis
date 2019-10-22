@@ -18,19 +18,41 @@ library(e1071)
 library(ROCR)
 ```
 ```{r}
+
+for (i in 1:ncol(combined)){
+  combined[,i] <- as.factor(combined[,i])
+}
+
+combined$tenure <- as.integer(combined$tenure)
+combined$MonthlyCharges <- as.integer(combined$MonthlyCharges)
+combined$TotalCharges <- as.integer(combined$TotalCharges)
+
+# Removing values with high Pr
+highpr_vars <- c("PaymentMethodMailed check", "PaymentMethodCredit card (automatic)", "StreamingMoviesYes", "DeviceProtectionYes", "OnlineBackupYes", "genderFemale", "Partner1", "Dependents1", "StreamingTVYes")
+
+combined <- combined[,!(names(combined) %in% highpr_vars)]
+
 traindata1 <- createDataPartition(y = combined$ChurnYes, p = 0.75, list = FALSE)
 train1 <- combined[traindata1,]
 test1 <- combined[-traindata1,]
 
-fit1 <- glm(ChurnYes~., data = combined, family = binomial)
+train100 <- train1[1:3000,]
+```
+
+
+```{r}
+set.seed(205)
+
+fit1 <- glm(ChurnYes~., data = train1, family = binomial)
+summary(fit1)
 
 churn_probs1 <- predict(fit1, test1, type = "response")
 head(churn_probs1)
 ```
 ```{r}
-glm_pred1 = rep("No", length(churn_probs))
+glm_pred1 = rep("No", length(churn_probs1))
 glm_pred1[churn_probs1 > 0.5] = "Yes"
-glm_pred1 <- as.factor(glm_pred)
+glm_pred1 <- as.factor(glm_pred1)
 ```
 ```{r}
 pred1 <- prediction(churn_probs1, test1$ChurnYes)
@@ -45,6 +67,8 @@ auc1
 ```{r}
 set.seed(205)
 
+
+
 # Control
 fitctrl1 <- trainControl(
   method = "repeatedcv",
@@ -53,6 +77,9 @@ fitctrl1 <- trainControl(
   classProbs = TRUE,
   summaryFunction = twoClassSummary
 )
+
+train100$ChurnYes <- as.factor(train100$ChurnYes)
+combined$ChurnYes <- as.factor(combined$ChurnYes)
 
 # Logistic regression model
 logreg1 <- train(ChurnYes~., combined,
