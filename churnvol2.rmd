@@ -43,7 +43,7 @@ train100 <- train1[1:3000,]
 ```{r}
 set.seed(205)
 
-fit1 <- glm(ChurnYes~., data = train1, family = binomial)
+fit1 <- glm(ChurnYes~., data = combined, family = binomial)
 summary(fit1)
 
 churn_probs1 <- predict(fit1, test1, type = "response")
@@ -64,29 +64,8 @@ auc1 <- performance(pred1, measure = "auc")
 auc1 <- auc1@y.values[[1]]
 auc1
 ```
-```{r}
-set.seed(205)
 
 
 
-# Control
-fitctrl1 <- trainControl(
-  method = "repeatedcv",
-  number = 10,
-  repeats = 3,
-  classProbs = TRUE,
-  summaryFunction = twoClassSummary
-)
-
-train100$ChurnYes <- as.factor(train100$ChurnYes)
-combined$ChurnYes <- as.factor(combined$ChurnYes)
-
-# Logistic regression model
-logreg1 <- train(ChurnYes~., combined,
-                method = "glm",
-                family = "binomial",
-                trControl = fitctrl1,
-                metric = "ROC")
-```
 
 

@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ## __What is the problem we are solving here?__
 #### Getting new customers is always way more expensive than retaining your excisting customers and make them come back for more. We are going to dig deep into the data and find out how we can make customers stay
 
-```{r}
+```{r include=FALSE}
 library(tidyverse)
 library(caret)
 library(plyr)
@@ -24,17 +24,19 @@ library(corrplot)
 library(e1071)
 library(ROCR)
 ```
-```{r}
+```{r include=FALSE}
 churndata <- read_csv("C:/Users/Mari/Documents/Lauri/churn_analysis/Telco Data.csv")
 #churndata <- read_csv("~/Documents/churn_analysis/Telco Data.csv")
 
-# Removing the customerID attribute as we wont be needing it in our algorithm
-churndata$customerID <- NULL
+
 ```
 ### As the data we are predicting is either "Churn" or "Not Churn", we are going to use Logistics regression which is a Linear classifier
 
 ### First off some data cleaning
 ```{r}
+# Removing the customerID attribute as we wont be needing it in our algorithm
+churndata$customerID <- NULL
+
 churndata$gender <- as.factor(churndata$gender)
 churndata$SeniorCitizen <- as.factor(churndata$SeniorCitizen)
 churndata$Partner <- as.factor(revalue(churndata$Partner, c("No" = 0, "Yes" = 1)))
@@ -63,23 +65,26 @@ missattrs # So only TotalCharges has some missing values
 names(which(missattrs > 0))
 churndata[is.na(churndata$TotalCharges),]
 
+# Imputing the missing values with the median of TotalCharges
 for (i in 1:nrow(churndata)){
   if (is.na(churndata$TotalCharges[i])){
     churndata$TotalCharges[i] <- median(churndata$TotalCharges, na.rm = TRUE)
   }
 }
-
-sapply(churndata, function(x) sum(x == "" | is.na(x)))
-names(which(missattrs > 0))
 ```
-Splitting the dataset into train and test
+### No more missing values
+```{r}
+sapply(churndata, function(x) sum(x == "" | is.na(x)))
+```
+### Splitting the dataset into train and test
 ```{r}
 traindata <- createDataPartition(y = churndata$Churn, p = 0.75, list = FALSE)
 train <- churndata[traindata,]
 test <- churndata[-traindata,]
 ```
-Then into numerical and factors
+### Next part will be about preprocessing the data that we will be using in the secondary improved model. The first algorithm we will see is just a quick and dirty classifier
 ```{r}
+# Splitting to numerical and factor values
 numerical_vars <- names(churndata[,sapply(churndata, is.numeric)])
 num_df <- churndata[,names(churndata) %in% numerical_vars]
 
@@ -120,6 +125,8 @@ combining the numerical and factor datasets
 ```{r}
 combined <- cbind(norm_df, dummy_df)
 ```
+## Here we will begin with the first classifier model
+
 Fitting the model
 ```{r}
 set.seed(205)
@@ -127,6 +134,7 @@ fit <- glm(Churn~., data = train, family = binomial)
 ```
 Predicting the test set with train fit
 ```{r}
+set.seed(205)
 churn_probs <- predict(fit, test, type = "response")
 head(churn_probs)
 ```
@@ -157,6 +165,8 @@ auc <- auc@y.values[[1]]
 auc
 # Our models auc is way over 50% so its way more accurate than guessing. Business value here!
 ```
+### Our model is running with confidency of about 0.869 percent which is pretty good allready
+
 Improving the model with cross validation
 ```{r}
 set.seed(205)
@@ -177,9 +187,12 @@ logreg <- train(Churn~., churndata,
                 trControl = fitctrl,
                 metric = "ROC")
 ```
+### Cross validation here shows that our model is not fitted and would perform the same in a completely new dataset
 ```{r}
 logreg
 ```
+## Here comes the business impact. We will dig into the savings that we could be making by using this algorithm
+
 Comparing the cost
 ```{r}
 # Fitting
